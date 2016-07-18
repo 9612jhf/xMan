@@ -1,6 +1,9 @@
 /*!
  * xMan JavaScript Library v0.9.0
  * A general cross domain solution
+ * Date: 2015//*!
+ * xMan JavaScript Library v0.9.0
+ * A general cross domain solution
  * https://github.com/YataoZhang/xMan
  * Date: 2015/11/3
  */
@@ -167,13 +170,20 @@
     };
     Manager.prototype.getJsonp = function () {
         var that = this;
-        return function (url, data, key, callback) {
+        return function (url, data, key ,callback, timeout) {
+        	if(url.indexOf("?")!=-1){
+        		url=url+"&__format=jsonp";
+        	}else{
+        		url=url+"?__format=jsonp";
+        	}
             var funcName = 'cb' + that.obtainId();
             var callbackName = 'window.x.' + funcName;
             var __script = document.createElement('script');
-            window.x[funcName] = function (data) {
+            window.x = [];
+            window.x[funcName] = function (_data) {
+            	clearTimeout(__script.timer);
                 try {
-                    callback(data);
+                    callback.call(this,_data);
                 } finally {
                     delete window.x[funcName];
                     __script.parentNode.removeChild(__script);
@@ -186,6 +196,16 @@
             arr += arr.length > 0 ? '&' : '';
             __script.src = tool.hasSearch(url, arr + key + '=' + callbackName);
             document.body.appendChild(__script);
+            
+            //超时处理
+            if (timeout) {
+            	__script.timer = setTimeout(function () {
+                    window[callbackName] = null;
+                    __script.parentNode.removeChild(__script);
+                    callback.call(this,"{messageType:'error',message:'超时'}");
+                }, timeout*1000);
+            }
+            
         };
     };
     Manager.prototype.getCORS = function (conf) {
@@ -212,6 +232,11 @@
                 url = tool.hasSearch(url, data);
                 data = void 0;
             }
+            if(url.indexOf("?")!=-1){
+        		url=url+"&__format=cross";
+        	}else{
+        		url=url+"?__format=cross";
+        	}
             conf = conf || {};
             var xhr = new supportCORS();
             xhr.open(type, url);
@@ -220,7 +245,7 @@
             });
             xhr.withCredentials = !!conf.withCredentials;
             xhr.onload = function () {
-                callback(xhr.responseText);
+                callback.call(this,xhr.responseText);
             };
             xhr.send(data);
         };
@@ -230,7 +255,7 @@
             return new FrameHandle(target);
         };
     };
-    Manager.prototype.createIframe = function (frameName) {
+    Manager.prototype.createIframe = function (frameName,timeout) {
         var iframe = null;
         var that = this;
         try {
@@ -242,39 +267,59 @@
         iframe.style.display = 'none';
         document.body.appendChild(iframe);
         var cb = function () {
-            var cb = that.queue[iframe.name];
-            if (cb) {
+            var _cb = that.queue[iframe.name];
+            if (_cb) {
                 try {
-                    cb(iframe.contentWindow.name);
+                	var _responseStr = iframe.contentWindow.name ;
+                	clearTimeout(iframe.timer);
+                	_cb.call(this,_responseStr);
+                }catch(e){
+                	clearTimeout(iframe.timer);
+                	_cb.call(this,"{messageType:'error',message:'请求错误'}");
                 } finally {
                     iframe.parentNode.removeChild(iframe);
                     delete that.queue[iframe.name];
                 }
             }
+            return _cb ;
         };
         if (window.attachEvent) {
             iframe.attachEvent('onload', cb);
         } else {
             iframe.addEventListener('load', cb, false);
         }
+        //超时处理
+        if (timeout) {
+        	iframe.timer = setTimeout(function () {
+                iframe.parentNode.removeChild(iframe);
+                delete that.queue[iframe.name];
+                cb("{messageType:'error', message: '超时'}");
+            }, timeout*1000);
+        }
     };
     Manager.prototype.getFrameForm = function () {
         var form = null;
         var that = this;
         // enctype [application/x-www-form-urlencoded] [multipart/form-data] [text/plain]
-        return function (type, url, data, callback, enctype) {
+        return function (type, url, data, callback, enctype,timeout) {
+        	console.log("timeout="+timeout);
             if (form === null) {
                 form = document.createElement('form');
                 form.style.display = 'none';
                 document.body.appendChild(form);
             }
+            if(url.indexOf("?")!=-1){
+        		url=url+"&__format=frameForm";
+        	}else{
+        		url=url+"?__format=frameForm";
+        	}
             var frameName = that.obtainId();
-            that.createIframe(frameName);
+            that.queue[frameName] = callback;
+            that.createIframe(frameName,timeout);
             form.method = type;
             form.enctype = enctype || 'application/x-www-form-urlencoded';
             form.setAttribute('target', frameName);
             form.action = url;
-            that.queue[frameName] = callback;
             form.innerHTML = '';
             var frage = document.createDocumentFragment();
             tool.forIn(data, function (key, value) {
@@ -486,7 +531,8 @@
             withCredentials: false,
             headers: {},
             targetWindow: window.frames[0] || window.top,
-            cache: false
+            cache: false,
+            timeout:120
         };
         tool.forIn(options, function (key) {
             options[key] = conf[key] || options[key];
@@ -531,7 +577,8 @@
                 return baseInstance.Jsonp(options.url,
                     options.data,
                     options.callbackName,
-                    options.success);
+                    options.success,
+                    options.timeout);
             case 'crossdomain':
                 return baseInstance.CORS(options.method,
                     options.url,
@@ -548,7 +595,8 @@
                     options.url,
                     options.data,
                     options.success,
-                    options.contentType);
+                    options.contentType,
+                    options.timeout);
         }
     };
     tool.forIn({
