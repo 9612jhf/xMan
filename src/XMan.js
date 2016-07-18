@@ -24,7 +24,7 @@
         } else {
             throw new Error('wrong execution environment');
         }
-        f.x = entrance();
+        f.wfAjax = entrance();
     }
 }(function () {
     "use strict";
@@ -172,9 +172,9 @@
         var that = this;
         return function (url, data, key ,callback, timeout) {
         	if(url.indexOf("?")!=-1){
-        		url=url+"&__format=jsonp";
+        		url=url+"&__callMethod=jsonp";
         	}else{
-        		url=url+"?__format=jsonp";
+        		url=url+"?__callMethod=jsonp";
         	}
             var funcName = 'cb' + that.obtainId();
             var callbackName = 'window.x.' + funcName;
@@ -233,9 +233,9 @@
                 data = void 0;
             }
             if(url.indexOf("?")!=-1){
-        		url=url+"&__format=cross";
+        		url=url+"&__callMethod=cross";
         	}else{
-        		url=url+"?__format=cross";
+        		url=url+"?__callMethod=cross";
         	}
             conf = conf || {};
             var xhr = new supportCORS();
@@ -309,9 +309,9 @@
                 document.body.appendChild(form);
             }
             if(url.indexOf("?")!=-1){
-        		url=url+"&__format=frameForm";
+        		url=url+"&__callMethod=frameForm";
         	}else{
-        		url=url+"?__format=frameForm";
+        		url=url+"?__callMethod=frameForm";
         	}
             var frameName = that.obtainId();
             that.queue[frameName] = callback;
